@@ -1,27 +1,24 @@
 import { connect, ConsumeMessage } from 'amqplib';
 
 const { CLOUDAMQP_URL } = process.env;
-const QUEUE = 'tasks';
-
-const delay = (): Promise<void> =>
-  new Promise(resolve => {
-    setTimeout(() => {
-      resolve();
-    }, 5000);
-  });
+const QUEUE_TASKS = 'tasks';
 
 const execute = async (): Promise<void> => {
   const conn = await connect(CLOUDAMQP_URL);
   const ch = await conn.createChannel();
-  ch.assertQueue(QUEUE);
+  ch.assertQueue(QUEUE_TASKS);
   const handleConsume = async (msg: ConsumeMessage): Promise<void> => {
     if (msg === null) {
       return;
     }
-    await delay();
     console.log(msg.content.toString());
     ch.ack(msg);
   };
-  ch.consume(QUEUE, handleConsume);
+  ch.consume(QUEUE_TASKS, handleConsume);
+  const handleSIGTERM = async (): Promise<void> => {
+    await conn.close();
+    process.exit(1);
+  };
+  process.on('SIGTERM', handleSIGTERM);
 };
 execute();
