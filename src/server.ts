@@ -3,15 +3,19 @@ import cors from 'cors';
 import express from 'express';
 import uuidv4 from 'uuid/v4';
 
-const { CLOUDAMQP_URL, PORT } = process.env;
-const QUEUE_TASKS = 'tasks';
+interface Callbacks {
+  [key: string]: (content: string) => void;
+}
 
-const callbacks: any = {};
+const { CLOUDAMQP_URL, PORT } = process.env;
+const QUEUE = 'tasks';
+
+const callbacks: Callbacks = {};
 
 const execute = async (): Promise<void> => {
   const conn = await connect(CLOUDAMQP_URL);
   const ch = await conn.createChannel();
-  await ch.assertQueue(QUEUE_TASKS);
+  await ch.assertQueue(QUEUE);
   const { queue } = await ch.assertQueue('', {
     exclusive: true,
   });
@@ -38,7 +42,7 @@ const execute = async (): Promise<void> => {
       delete callbacks[correlationId];
     };
     callbacks[correlationId] = callback;
-    ch.sendToQueue(QUEUE_TASKS, Buffer.from('hello'), { correlationId, replyTo: queue });
+    ch.sendToQueue(QUEUE, Buffer.from('hello'), { correlationId, replyTo: queue });
   });
   // eslint-disable-next-line
   app.listen(PORT, () => console.log(`Example app listening on port ${PORT}!`));

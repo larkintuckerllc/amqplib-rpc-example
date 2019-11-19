@@ -1,12 +1,12 @@
 import { connect, ConsumeMessage } from 'amqplib';
 
 const { CLOUDAMQP_URL } = process.env;
-const QUEUE_TASKS = 'tasks';
+const QUEUE = 'tasks';
 
 const execute = async (): Promise<void> => {
   const conn = await connect(CLOUDAMQP_URL);
   const ch = await conn.createChannel();
-  ch.assertQueue(QUEUE_TASKS);
+  ch.assertQueue(QUEUE);
   const handleConsume = async (msg: ConsumeMessage): Promise<void> => {
     if (msg === null) {
       return;
@@ -19,7 +19,7 @@ const execute = async (): Promise<void> => {
     ch.sendToQueue(replyTo, Buffer.from('world'), { correlationId });
     ch.ack(msg);
   };
-  ch.consume(QUEUE_TASKS, handleConsume);
+  ch.consume(QUEUE, handleConsume);
   const handleSIGTERM = async (): Promise<void> => {
     await conn.close();
     process.exit(1);
