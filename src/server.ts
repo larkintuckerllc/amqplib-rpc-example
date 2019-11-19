@@ -6,6 +6,8 @@ import uuidv4 from 'uuid/v4';
 const { CLOUDAMQP_URL, PORT } = process.env;
 const QUEUE_TASKS = 'tasks';
 
+const callbacks: any = {};
+
 const execute = async (): Promise<void> => {
   const conn = await connect(CLOUDAMQP_URL);
   const ch = await conn.createChannel();
@@ -21,8 +23,7 @@ const execute = async (): Promise<void> => {
       content,
       properties: { correlationId },
     } = msg;
-    console.log(content.toString());
-    console.log(correlationId);
+    callbacks[correlationId](content.toString());
     ch.ack(msg);
   };
   ch.consume(queue, handleConsume);
@@ -31,8 +32,13 @@ const execute = async (): Promise<void> => {
   app.get('/', (req, res) => res.send({ hello: 'world' }));
   app.get('/upload', (req, res) => {
     const correlationId = uuidv4();
+    const callback = (content: string): void => {
+      console.log(content);
+      res.send({ hello: 'upload' });
+      delete callbacks[correlationId];
+    };
+    callbacks[correlationId] = callback;
     ch.sendToQueue(QUEUE_TASKS, Buffer.from('hello'), { correlationId, replyTo: queue });
-    res.send({ hello: 'upload' });
   });
   // eslint-disable-next-line
   app.listen(PORT, () => console.log(`Example app listening on port ${PORT}!`));
