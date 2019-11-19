@@ -10,6 +10,13 @@ interface Callbacks {
 const { CLOUDAMQP_URL, PORT } = process.env;
 const QUEUE = 'tasks';
 
+const delay = (): Promise<void> =>
+  new Promise(resolve => {
+    setTimeout(() => {
+      resolve();
+    }, 1000);
+  });
+
 const callbacks: Callbacks = {};
 
 const execute = async (): Promise<void> => {
@@ -27,14 +34,16 @@ const execute = async (): Promise<void> => {
       content,
       properties: { correlationId },
     } = msg;
-    callbacks[correlationId](content.toString());
+    if (callbacks[correlationId] !== undefined) {
+      callbacks[correlationId](content.toString());
+    }
     ch.ack(msg);
   };
   ch.consume(queue, handleConsume);
   const app = express();
   app.use(cors());
   app.get('/', (req, res) => res.send({ hello: 'world' }));
-  app.get('/upload', (req, res) => {
+  app.get('/upload', async (req, res) => {
     const correlationId = uuidv4();
     const callback = (content: string): void => {
       console.log(content);
@@ -43,6 +52,11 @@ const execute = async (): Promise<void> => {
     };
     callbacks[correlationId] = callback;
     ch.sendToQueue(QUEUE, Buffer.from('hello'), { correlationId, replyTo: queue });
+    await delay();
+    if (callbacks[correlationId] !== undefined) {
+      res.status(500).send();
+      delete callbacks[correlationId];
+    }
   });
   // eslint-disable-next-line
   app.listen(PORT, () => console.log(`Example app listening on port ${PORT}!`));
