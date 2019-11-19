@@ -1,6 +1,6 @@
+import { connect, ConsumeMessage } from 'amqplib';
 import cors from 'cors';
 import express from 'express';
-import { connect, ConsumeMessage } from 'amqplib';
 
 const { CLOUDAMQP_URL, PORT } = process.env;
 const QUEUE_TASKS = 'tasks';
