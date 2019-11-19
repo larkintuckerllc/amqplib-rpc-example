@@ -13,10 +13,10 @@ const execute = async (): Promise<void> => {
     }
     const {
       content,
-      properties: { replyTo },
+      properties: { correlationId, replyTo },
     } = msg;
     console.log(content.toString());
-    ch.sendToQueue(replyTo, Buffer.from('world'));
+    ch.sendToQueue(replyTo, Buffer.from('world'), { correlationId });
     ch.ack(msg);
   };
   ch.consume(QUEUE_TASKS, handleConsume);
