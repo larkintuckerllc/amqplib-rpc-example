@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { connect, ConsumeMessage } from 'amqplib';
 import cors from 'cors';
 import express from 'express';
@@ -20,12 +21,15 @@ const delay = (): Promise<void> =>
 const callbacks: Callbacks = {};
 
 const execute = async (): Promise<void> => {
+  // AMQP INITIALIZE
   const conn = await connect(CLOUDAMQP_URL);
   const ch = await conn.createChannel();
   await ch.assertQueue(QUEUE);
   const { queue } = await ch.assertQueue('', {
     exclusive: true,
   });
+
+  // CONSUME WORKER RESPONSES
   const handleConsume = async (msg: ConsumeMessage): Promise<void> => {
     if (msg === null) {
       return;
@@ -40,26 +44,29 @@ const execute = async (): Promise<void> => {
     ch.ack(msg);
   };
   ch.consume(queue, handleConsume);
+
+  // EXPRESS SETUP
   const app = express();
   app.use(cors());
-  app.get('/', (req, res) => res.send({ hello: 'world' }));
-  app.get('/upload', async (req, res) => {
+  app.get('/', async (req, res) => {
     const correlationId = uuidv4();
     const callback = (content: string): void => {
-      console.log(content);
-      res.send({ hello: 'upload' });
+      res.send(content);
       delete callbacks[correlationId];
     };
     callbacks[correlationId] = callback;
     ch.sendToQueue(QUEUE, Buffer.from('hello'), { correlationId, replyTo: queue });
+
+    // HANDLE WORKER NOT COMPLETING
     await delay();
     if (callbacks[correlationId] !== undefined) {
       res.status(500).send();
       delete callbacks[correlationId];
     }
   });
-  // eslint-disable-next-line
   app.listen(PORT, () => console.log(`Example app listening on port ${PORT}!`));
+
+  // AMQP SHUTDOWN
   const handleSIGTERM = async (): Promise<void> => {
     await conn.close();
     process.exit(1);
